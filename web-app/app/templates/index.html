@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="{{ ui_language }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>OneNeo Bank コンシェルジュ</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏦</text></svg>">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <div class="phone">
+    <!-- App bar -->
+    <header class="appbar">
+      <div class="brand"><span class="brand-mark">🏦</span> OneNeo Bank</div>
+      <div class="appbar-sub">コンシェルジュ・デモ</div>
+    </header>
+
+    <!-- Scrollable content: two tab panels -->
+    <main class="content">
+      <!-- TAB 1: personas -->
+      <section id="panel-personas" class="panel is-active" role="tabpanel" aria-label="ペルソナ">
+        <h2 class="panel-title">ペルソナ <span class="count">{{ personas|length }}</span></h2>
+        <ul class="card-list">
+          {% for p in personas %}
+          <li class="card persona-card">
+            <span class="avatar" style="background:{{ p.color }}">{{ p.emoji }}</span>
+            <div class="card-body">
+              <div class="card-title">
+                {{ p.name }}
+                <span class="chip id-chip">{{ p.id }}</span>
+                {% if p.hard_case %}<span class="chip hard-chip">難ケース</span>{% endif %}
+              </div>
+              <div class="card-sub">{{ p.type_label }}</div>
+              <div class="card-meta">{{ p.age }}歳 · {{ p.gender }}{% if p.job %} · {{ p.job }}{% endif %}</div>
+            </div>
+            <span class="chevron">›</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+
+      <!-- TAB 2: campaigns -->
+      <section id="panel-campaigns" class="panel" role="tabpanel" aria-label="キャンペーン" hidden>
+        <h2 class="panel-title">キャンペーン <span class="count">{{ campaigns|length }}</span></h2>
+        <ul class="card-list">
+          {% for c in campaigns %}
+          <li class="card campaign-card">
+            <span class="cmp-icon">{{ c.icon }}</span>
+            <div class="card-body">
+              <div class="card-title">{{ c.title }}</div>
+              <div class="card-tags">
+                <span class="chip cat-chip">{{ c.category }}</span>
+                {% if c.cap %}<span class="chip cap-chip">最大 {{ "{:,}".format(c.cap) }}円</span>{% endif %}
+              </div>
+              <div class="card-sub">{{ c.description }}</div>
+              {% if c.period %}<div class="card-meta">📅 {{ c.period }}</div>{% endif %}
+            </div>
+            <span class="chevron">›</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+    </main>
+
+    <!-- Bottom tab bar -->
+    <nav class="tabbar" role="tablist">
+      <button class="tab is-active" data-tab="personas" role="tab" aria-selected="true">
+        <span class="tab-icon">👤</span><span class="tab-label">ペルソナ</span>
+      </button>
+      <button class="tab" data-tab="campaigns" role="tab" aria-selected="false">
+        <span class="tab-icon">🎁</span><span class="tab-label">キャンペーン</span>
+      </button>
+    </nav>
+  </div>
+</body>
+</html>

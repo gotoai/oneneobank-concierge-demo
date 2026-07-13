@@ -1,0 +1,6 @@
+# OneNeo Bank concierge demo — Python dependencies (Python 3.12).
+# Install: .venv/bin/pip install -r requirements.txt
+
+# Data build pipeline: parse the ```yaml facts``` blocks in docs/profiles and
+# emit DATA/*.yaml (scripts/build_data.py).
+PyYAML>=6.0

@@ -216,3 +216,15 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Data
+DATA/
+data/
+Data/
+
+# Temporaries
+tmp/
+temp/
+TMP/
+TEMP/
+.tmp/
