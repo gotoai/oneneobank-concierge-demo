@@ -6,6 +6,7 @@
 fastapi                  # web framework (pages + JSON API)
 uvicorn[standard]        # ASGI server
 jinja2                   # server-rendered HTML
+markdown                 # render a campaign's Markdown block into the detail page
 python-dotenv            # load web-app/.env
 PyYAML                   # read the compiled DATA/campaigns.yaml (reward caps)
 pytest                   # data-layer + endpoint smoke tests

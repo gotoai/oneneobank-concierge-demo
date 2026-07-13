@@ -27,6 +27,7 @@ def _path(env: str, default: Path) -> Path:
 PROFILES_DIR: Path = _path("PROFILES_DIR", (REPO_ROOT / "docs" / "profiles").resolve())
 PERSONAS_MD = PROFILES_DIR / "Personas.md"
 CAMPAIGNS_MD = PROFILES_DIR / "Campaigns.md"
+MATRIX_MD = PROFILES_DIR / "Persona-campaign-matrix.md"
 
 # Compiled facts (reproducible; produced by `make facts`). Optional — the app still
 # runs without it, just without reward summaries.

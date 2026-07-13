@@ -9,6 +9,9 @@ layer. JSON endpoints mirror the same data for future JS use.
 """
 from __future__ import annotations
 
+import textwrap
+
+import markdown as md
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -34,6 +37,28 @@ async def index(request: Request) -> HTMLResponse:
         "campaigns": d.campaigns,
         "ui_language": config.UI_LANGUAGE,
     })
+
+
+@app.get("/ui/campaign/{campaign_id}", response_class=HTMLResponse)
+async def ui_campaign_detail(request: Request, campaign_id: str) -> HTMLResponse:
+    """Detail fragment for one campaign, rendered from its Markdown block (the SoT)."""
+    c = data.campaign_by_id(campaign_id)
+    if c is None:
+        return HTMLResponse("<p class='error'>不明なキャンペーンです。</p>", status_code=404)
+    # Dedent the 2-space-indented block so Markdown parses lists/tables correctly.
+    body_html = md.markdown(textwrap.dedent(c["raw_md"]), extensions=["tables"])
+    return templates.TemplateResponse(request, "_campaign_detail.html", {
+        "c": c, "body_html": body_html,
+    })
+
+
+@app.get("/ui/persona/{persona_id}/home", response_class=HTMLResponse)
+async def ui_persona_home(request: Request, persona_id: str) -> HTMLResponse:
+    """The persona's mobile home screen (banner, balance, transactions, messages)."""
+    home = data.persona_home(persona_id)
+    if home is None:
+        return HTMLResponse("<p class='error'>不明なペルソナです。</p>", status_code=404)
+    return templates.TemplateResponse(request, "_persona_home.html", {"h": home})
 
 
 @app.get("/api/personas")

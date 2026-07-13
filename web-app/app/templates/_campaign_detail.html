@@ -1,0 +1,14 @@
+<div class="detail-head">
+  <span class="cmp-icon big">{{ c.icon }}</span>
+  <div class="detail-headings">
+    <div class="detail-title">{{ c.title }}</div>
+    <div class="card-tags">
+      <span class="chip cat-chip">{{ c.category }}</span>
+      {% if c.cap %}<span class="chip cap-chip">最大 {{ "{:,}".format(c.cap) }}円</span>{% endif %}
+      <span class="chip id-chip">{{ c.id }}</span>
+    </div>
+  </div>
+</div>
+<div class="md-body">
+  {{ body_html|safe }}
+</div>

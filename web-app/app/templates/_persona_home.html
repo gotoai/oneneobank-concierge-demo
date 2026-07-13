@@ -1,0 +1,108 @@
+{% set p = h.persona %}
+<div class="pscreen">
+  <!-- top bar -->
+  <header class="pbar">
+    <button class="back-btn" id="persona-back" aria-label="戻る">‹</button>
+    <span class="avatar sm" style="background:{{ p.color }}">{{ p.emoji }}</span>
+    <div class="pbar-titles">
+      <div class="pbar-name">{{ p.name }} <span class="chip id-chip">{{ p.id }}</span></div>
+      <div class="pbar-sub">{{ p.type_label }}</div>
+    </div>
+  </header>
+
+  <div class="pscreen-content">
+    <!-- HOME -->
+    <section class="home-panel" data-panel="home">
+      <!-- (1) Banner notification -->
+      {% if h.banner %}
+      <button class="banner" data-campaign-id="{{ h.banner.id }}">
+        <span class="banner-icon">{{ h.banner.icon }}</span>
+        <span class="banner-text">
+          <span class="banner-kicker">あなたへのおすすめ</span>
+          <span class="banner-title">{{ h.banner.title }}</span>
+        </span>
+        <span class="chevron">›</span>
+      </button>
+      {% endif %}
+
+      <!-- (2) Account balance -->
+      <div class="balance-card">
+        <div class="balance-label">普通預金残高</div>
+        <div class="balance-amount">¥{{ "{:,}".format(h.ordinary) }}</div>
+        {% if h.time_deposit %}
+        <div class="balance-sub">定期預金 ¥{{ "{:,}".format(h.time_deposit) }}</div>
+        {% endif %}
+      </div>
+
+      <!-- (3) Recent transactions -->
+      <div class="section-head">最近の取引</div>
+      <ul class="tx-list">
+        {% for t in h.transactions %}
+        <li class="tx-row">
+          <span class="tx-emoji">{{ t.emoji }}</span>
+          <span class="tx-main"><span class="tx-label">{{ t.label }}</span><span class="tx-date">{{ t.date }}</span></span>
+          <span class="tx-amt {{ 'plus' if t.amount > 0 else 'minus' }}">
+            {{ '+' if t.amount > 0 else '−' }}¥{{ "{:,}".format(t.amount|abs) }}
+          </span>
+        </li>
+        {% endfor %}
+      </ul>
+
+      <!-- (4) Function icons -->
+      <div class="section-head">メニュー</div>
+      <div class="icon-grid">
+        {% for ic in h.icons %}
+        <button class="fn-icon"{% if ic.tab %} data-home-tab="{{ ic.tab }}"{% endif %}>
+          <span class="fn-emoji">{{ ic.emoji }}</span>
+          <span class="fn-label">{{ ic.label }}</span>
+        </button>
+        {% endfor %}
+      </div>
+
+      <!-- (5) Message / notification history -->
+      <div class="section-head">お知らせ</div>
+      <ul class="msg-list">
+        {% for m in h.messages %}
+        <li class="msg-row"><span class="msg-date">{{ m.date }}</span><span class="msg-text">{{ m.text }}</span></li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- CAMPAIGN (recommended for this persona) -->
+    <section class="home-panel" data-panel="campaign" hidden>
+      <div class="section-head">おすすめキャンペーン</div>
+      <ul class="card-list">
+        {% for c in h.recommended %}
+        <li class="card campaign-card" data-campaign-id="{{ c.id }}" role="button" tabindex="0">
+          {% if loop.first %}<span class="reco-badge">おすすめ</span>{% endif %}
+          <span class="cmp-icon">{{ c.icon }}</span>
+          <div class="card-body">
+            <div class="card-title">{{ c.title }}</div>
+            <div class="card-tags">
+              <span class="chip cat-chip">{{ c.category }}</span>
+              {% if c.cap %}<span class="chip cap-chip">最大 {{ "{:,}".format(c.cap) }}円</span>{% endif %}
+            </div>
+          </div>
+          <span class="chevron">›</span>
+        </li>
+        {% endfor %}
+      </ul>
+    </section>
+
+    <!-- TRANSFER / MENU placeholders -->
+    <section class="home-panel placeholder" data-panel="transfer" hidden>
+      <div class="ph-icon">💸</div><p>振込画面（デモでは準備中）</p>
+    </section>
+    <section class="home-panel placeholder" data-panel="menu" hidden>
+      <div class="ph-icon">☰</div><p>メニュー画面（デモでは準備中）</p>
+    </section>
+  </div>
+
+  <!-- (6) Bottom navigation -->
+  <nav class="tabbar home-tabbar">
+    <button class="tab home-tab is-active" data-home-tab="home"><span class="tab-icon">🏠</span><span class="tab-label">ホーム</span></button>
+    <button class="tab home-tab" data-home-tab="transfer"><span class="tab-icon">💸</span><span class="tab-label">振込</span></button>
+    <button class="tab home-tab" data-home-tab="campaign"><span class="tab-icon-wrap"><span class="tab-icon">🎁</span><span class="nav-badge">1</span></span><span class="tab-label">キャンペーン</span></button>
+    <button class="tab home-tab" data-home-tab="menu"><span class="tab-icon">☰</span><span class="tab-label">メニュー</span></button>
+  </nav>
+</div>

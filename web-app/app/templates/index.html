@@ -23,7 +23,7 @@
         <h2 class="panel-title">ペルソナ <span class="count">{{ personas|length }}</span></h2>
         <ul class="card-list">
           {% for p in personas %}
-          <li class="card persona-card">
+          <li class="card persona-card" data-persona-id="{{ p.id }}" role="button" tabindex="0">
             <span class="avatar" style="background:{{ p.color }}">{{ p.emoji }}</span>
             <div class="card-body">
               <div class="card-title">
@@ -45,7 +45,7 @@
         <h2 class="panel-title">キャンペーン <span class="count">{{ campaigns|length }}</span></h2>
         <ul class="card-list">
           {% for c in campaigns %}
-          <li class="card campaign-card">
+          <li class="card campaign-card" data-campaign-id="{{ c.id }}" role="button" tabindex="0">
             <span class="cmp-icon">{{ c.icon }}</span>
             <div class="card-body">
               <div class="card-title">{{ c.title }}</div>
@@ -62,6 +62,20 @@
         </ul>
       </section>
     </main>
+
+    <!-- Persona home-screen overlay (fetched into it on persona tap) -->
+    <div id="persona-overlay" class="overlay" hidden>
+      <div id="persona-content"></div>
+    </div>
+
+    <!-- Slide-in detail overlay (campaign detail is fetched into it) -->
+    <div id="detail-overlay" class="overlay" hidden>
+      <header class="detail-bar">
+        <button class="back-btn" id="detail-back" aria-label="戻る">‹ 戻る</button>
+        <span class="detail-bar-title">キャンペーン詳細</span>
+      </header>
+      <div id="detail-content" class="detail-content"></div>
+    </div>
 
     <!-- Bottom tab bar -->
     <nav class="tabbar" role="tablist">
