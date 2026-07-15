@@ -1,0 +1,33 @@
+<div class="concierge">
+  <header class="detail-bar">
+    <button class="back-btn" id="concierge-back" aria-label="戻る">‹ 戻る</button>
+    <span class="detail-bar-title">キャンペーン</span>
+  </header>
+
+  <!-- TOP: campaign detail -->
+  <section class="c-detail">
+    {% include "_campaign_detail.html" %}
+  </section>
+
+  <!-- BOTTOM: concierge chat (proxied to the agent-service) -->
+  <section class="c-chat" data-chat-campaign="{{ c.id }}" data-chat-persona="{{ persona.id if persona else '' }}">
+    <div class="c-chat-head">🤖 AIコンシェルジュ</div>
+    <div class="c-chat-log" id="c-chat-log">
+      <div class="msg assistant">
+        {% if persona %}{{ persona.name }} さま、こんにちは。{% else %}こんにちは。{% endif %}「{{ c.title }}」について、達成条件やシミュレーション、お申し込みの
+        ご相談を承ります。お気軽にご質問ください。
+      </div>
+    </div>
+    <div class="c-chat-actions">
+      <select id="c-chat-lang" class="c-lang-select" aria-label="言語 / Language">
+        <option value="ja" selected>日本語</option>
+        <option value="en">English</option>
+      </select>
+      <button type="button" class="entry-btn" data-entry-id="{{ c.id }}">今すぐエントリー</button>
+    </div>
+    <form class="c-chat-input" id="c-chat-form" autocomplete="off">
+      <input id="c-chat-text" type="text" placeholder="メッセージを入力…" required>
+      <button type="submit">送信</button>
+    </form>
+  </section>
+</div>

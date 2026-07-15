@@ -1,0 +1,17 @@
+# OneNeo Bank concierge agent-service — ISOLATED from the pipeline's requirements.txt.
+# Install into agent-service/.venv on a CUDA GPU box.
+#
+# NOTE: install torch/torchvision FIRST and separately — the correct CUDA wheel
+# depends on the box's driver, so they are intentionally NOT pinned here.
+#   .venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cu121
+#   .venv/bin/pip install -r requirements.txt
+
+transformers>=5.10.1     # Gemma 4 needs transformers v5
+accelerate
+bitsandbytes             # 4-bit (nf4) quantization
+pillow                   # multimodal processor dependency
+timm                     # multimodal processor dependency
+python-dotenv            # load agent-service/.env (MODEL_ID / HF_HOME / GOTOAI_AGENT_API_KEY)
+PyYAML>=6.0              # read the compiled DATA/*.yaml knowledge
+fastapi                  # web API (agent.api) — thin wrapper over the concierge module
+uvicorn[standard]        # ASGI server for the web API (run a SINGLE worker: one model/process)

@@ -17,6 +17,8 @@ from datetime import date, timedelta
 from functools import lru_cache
 from pathlib import Path
 
+import yaml
+
 from . import config
 
 # --- persona parsing ---------------------------------------------------------
@@ -182,6 +184,34 @@ def _rng(seed: str) -> random.Random:
     return random.Random(int(hashlib.md5(seed.encode()).hexdigest(), 16))
 
 
+# Map a transaction category (from DATA/transactions.yaml) to a display emoji.
+_CAT_EMOJI = {
+    "income": "💴", "housing": "🏠", "loan": "🏦", "utility": "💡",
+    "subscription": "📺", "shopping": "🛒", "dining": "🍽",
+    "transport": "🚃", "atm": "🏧", "transfer": "💸",
+}
+
+
+@lru_cache(maxsize=1)
+def _transactions() -> dict[str, list[dict]]:
+    """persona_id -> list of transactions from DATA/transactions.yaml (or empty)."""
+    path = config.TRANSACTIONS_YAML
+    if not path.exists():
+        return {}
+    doc = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    return {pid: v.get("transactions", []) for pid, v in doc.get("transactions", {}).items()}
+
+
+def _display_tx(t: dict) -> dict:
+    """Adapt a stored transaction to the fields the home template expects."""
+    return {
+        "date": str(t["date"])[5:].replace("-", "/"),  # YYYY-MM-DD -> MM/DD
+        "label": t["description"],
+        "emoji": _CAT_EMOJI.get(t.get("category"), "🧾"),
+        "amount": t["amount"],
+    }
+
+
 @lru_cache(maxsize=1)
 def _matrix() -> tuple[dict[str, str], dict[str, dict]]:
     """(code->campaign_id, persona_id->{scores, top}) parsed from the matrix doc."""
@@ -245,8 +275,17 @@ def persona_home(pid: str) -> dict | None:
         return None
     rng = _rng(pid)
     monthly = int(p["income_man"] * 10000 / 12) if p["income_man"] else 250000
-    ordinary = int(rng.uniform(0.8, 4.0) * max(monthly, 120000) / 1000) * 1000
     has_td = "定期預金" in p["products"]
+
+    # Recent transactions + balance: prefer DATA/transactions.yaml (the pipeline
+    # output, most-recent-first with running balances); fall back to generating.
+    file_tx = _transactions().get(pid)
+    if file_tx:
+        transactions = [_display_tx(t) for t in file_tx[:5]]  # home shows the recent 5
+        ordinary = file_tx[0]["balance"]
+    else:
+        ordinary = int(rng.uniform(0.8, 4.0) * max(monthly, 120000) / 1000) * 1000
+        transactions = _gen_txns(rng, p, monthly)
     time_deposit = rng.randint(10, 30) * 100000 if has_td else None
 
     code_to_id, rows = _matrix()
@@ -264,7 +303,7 @@ def persona_home(pid: str) -> dict | None:
         "persona": p,
         "ordinary": ordinary,
         "time_deposit": time_deposit,
-        "transactions": _gen_txns(rng, p, monthly),
+        "transactions": transactions,
         "messages": _gen_messages(rng, banner, has_td),
         "icons": FUNCTION_ICONS,
         "banner": banner,

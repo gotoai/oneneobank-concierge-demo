@@ -1,0 +1,40 @@
+<header class="detail-bar">
+  <button class="back-btn" id="entry-back" aria-label="戻る">‹ 戻る</button>
+  <span class="detail-bar-title">キャンペーンにエントリー</span>
+</header>
+
+<div class="entry-content">
+  <div class="detail-head">
+    <span class="cmp-icon big">{{ c.icon }}</span>
+    <div class="detail-headings">
+      <div class="detail-title">{{ c.title }}</div>
+      <div class="card-tags">
+        <span class="chip cat-chip">{{ c.category }}</span>
+        {% if c.cap %}<span class="chip cap-chip">最大 {{ "{:,}".format(c.cap) }}円</span>{% endif %}
+        <span class="chip id-chip">{{ c.id }}</span>
+      </div>
+    </div>
+  </div>
+
+  <p class="entry-lead">
+    本キャンペーンは<strong>事前エントリー制</strong>です。以下をご確認のうえ、エントリーしてください。
+    {% if c.period %}<br>対象期間：{{ c.period }}{% endif %}
+  </p>
+
+  <form class="entry-form" id="entry-form" data-campaign="{{ c.id }}" data-title="{{ c.title }}" autocomplete="off">
+    <label class="entry-field">
+      <span class="entry-label">対象口座</span>
+      <select name="account" required>
+        <option value="ordinary">普通預金口座（メイン）</option>
+      </select>
+    </label>
+
+    <label class="entry-agree">
+      <input type="checkbox" name="agree" required>
+      <span>キャンペーンの<strong>諸条件・注意事項</strong>を確認し、同意します。</span>
+    </label>
+
+    <button type="submit" class="entry-submit">エントリーする</button>
+    <p class="entry-note">※本画面はデモです。実際の口座・お取引には反映されません。</p>
+  </form>
+</div>

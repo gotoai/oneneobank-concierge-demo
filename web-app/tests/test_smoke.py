@@ -66,3 +66,12 @@ def test_campaign_detail_renders_markdown():
     # the facts yaml block must NOT leak into a campaign's detail
     assert "```" not in r.text and "reward:" not in r.text
     assert client.get("/ui/campaign/NOPE").status_code == 404
+
+
+def test_campaign_concierge_split_view():
+    r = client.get("/ui/campaign/CMP-DEP-2026Q3-01/concierge")
+    assert r.status_code == 200
+    # top panel = the same detail; bottom panel = chat widget
+    assert 'class="c-detail"' in r.text and "給与または年金の受取口座に設定" in r.text
+    assert 'id="c-chat-form"' in r.text and "AIコンシェルジュ" in r.text
+    assert client.get("/ui/campaign/NOPE/concierge").status_code == 404
