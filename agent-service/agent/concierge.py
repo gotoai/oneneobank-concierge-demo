@@ -161,9 +161,24 @@ def build_system_prompt(
 
 
 def build_messages(system_prompt: str, history: list[dict], user_input: str) -> list[dict]:
-    """system + prior turns + the new user question, in Gemma content-parts format."""
+    """system + prior turns + the new user question, in Gemma content-parts format.
+
+    Used by the in-process transformers backend (agent.llm), whose chat template
+    consumes content-parts. For the vLLM/OpenAI backend use build_messages_openai.
+    """
     messages = [text_message("system", system_prompt)]
     for turn in history:
         messages.append(text_message(turn["role"], turn["text"]))
     messages.append(text_message("user", user_input))
+    return messages
+
+
+def build_messages_openai(system_prompt: str, history: list[dict], user_input: str) -> list[dict]:
+    """Same conversation as build_messages, but in the OpenAI chat shape
+    ``{"role": ..., "content": <str>}`` that the vLLM server's API expects.
+    """
+    messages = [{"role": "system", "content": system_prompt}]
+    for turn in history:
+        messages.append({"role": turn["role"], "content": turn["text"]})
+    messages.append({"role": "user", "content": user_input})
     return messages

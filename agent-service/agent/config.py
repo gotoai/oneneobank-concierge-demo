@@ -56,6 +56,21 @@ API_PORT = _int("API_PORT", 8000)
 # Set API_EAGER_LOAD=0 to defer loading until the first request instead.
 API_EAGER_LOAD = os.environ.get("API_EAGER_LOAD", "1").strip().lower() not in ("0", "false", "no", "")
 
+# --- vLLM backend (agent.api_vllm + run_vllm_server.sh) --------------------------------
+# The vLLM gateway (agent.api_vllm) serves the SAME /v1/* contract as agent.api, but the
+# model runs in a SEPARATE `vllm serve` process which the gateway calls over its
+# OpenAI-compatible API. These settings only matter for that backend; the transformers
+# backend (agent.api) ignores them. Run the gateway on API_PORT (default 8000) and
+# `vllm serve` on a DIFFERENT port (default 8001) so they don't clash.
+VLLM_BASE_URL = os.environ.get("VLLM_BASE_URL", "http://127.0.0.1:8001/v1")
+# Model name the gateway asks vLLM to serve; MUST match what `vllm serve` was launched
+# with (run_vllm_server.sh reads the same VLLM_MODEL_ID). For a 16GB GPU, point this at a
+# w4a16 QAT checkpoint (e.g. google/gemma-4-E4B-it-qat-w4a16-ct) via the env var.
+VLLM_MODEL_ID = os.environ.get("VLLM_MODEL_ID", MODEL_ID)
+# vLLM ignores the key unless it was started with --api-key; the OpenAI client still
+# requires a non-empty string, so default to a placeholder.
+VLLM_API_KEY = os.environ.get("VLLM_API_KEY", "EMPTY")
+
 # agent-service/ dir (config.py -> parents[1]); default home for local caches.
 AGENT_SERVICE_DIR = Path(__file__).resolve().parents[1]
 

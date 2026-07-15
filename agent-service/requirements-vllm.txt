@@ -1,0 +1,26 @@
+# vLLM backend for the concierge agent-service — STANDALONE.
+#
+# This is NOT an add-on to requirements.txt. Install it into its OWN venv (.venv-vllm),
+# separate from the transformers backend's .venv:
+#
+#   python3.12 -m venv agent-service/.venv-vllm
+#   agent-service/.venv-vllm/bin/pip install -r agent-service/requirements-vllm.txt
+#
+# Why separate: vllm HARD-PINS torch to an exact CUDA build, which conflicts with the
+# transformers stack's separately-installed torch + bitsandbytes. Do not combine the two
+# requirement files in one environment. Let vllm pull its own matching torch (do NOT pin
+# torch here); whether that build matches your GPU driver is the one thing only the box
+# can confirm.
+#
+# This venv runs BOTH vLLM processes on the GPU box:
+#   * the model server:  ./run_vllm_server.sh   (needs `vllm`)
+#   * the gateway:        python -m agent.api_vllm  (needs `openai` + fastapi/uvicorn)
+# The gateway itself is torch-free; if you ever run it on a separate (CPU) host, it only
+# needs openai + fastapi + uvicorn[standard] + python-dotenv + PyYAML (drop `vllm`).
+
+vllm                     # the OpenAI-compatible model server + continuous batching engine
+openai                   # the gateway's async client to the vLLM server (agent.vllm_adapter)
+fastapi                  # the gateway web API (agent.api_vllm) — shares agent.schemas
+uvicorn[standard]        # ASGI server for the gateway
+python-dotenv            # load agent-service/.env (MODEL_ID / HF_HOME / VLLM_* / API key)
+PyYAML>=6.0              # read the compiled DATA/*.yaml knowledge (agent.data)

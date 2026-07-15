@@ -1,10 +1,14 @@
-"""Live web API for the OneNeo Bank concierge agent-service (FastAPI).
+"""Live web API for the OneNeo Bank concierge — in-process transformers backend (FastAPI).
 
 This is the web-API counterpart to :mod:`agent.cli`. Where the CLI resolves one
 customer + campaign at startup and holds the grounding for a REPL session, the API
 is stateless: each ``/v1/chat`` request names the customer and campaign, the server
 rebuilds the grounded system prompt (cheap — the data layer is ``lru_cache``d) and
 generates the reply. Conversation continuity is the caller's job, via ``history``.
+
+The ``/v1/*`` contract (request/response models, auth, grounding) lives in
+:mod:`agent.schemas` and is shared verbatim with the vLLM gateway (:mod:`agent.api_vllm`),
+so the two backends are drop-in compatible.
 
 Endpoints:
   * ``GET  /healthz``          liveness (process up; model need not be loaded)
@@ -18,7 +22,8 @@ Endpoints:
 Operational model (why this file looks the way it does):
   * ONE model in ONE process. The Gemma model is a process-wide singleton in VRAM
     (agent.llm.get_llm). Run a SINGLE uvicorn worker — never --workers N, or you load
-    N copies of the model. Scale by GPU/replica instead.
+    N copies of the model. Scale by GPU/replica instead. (For request-level concurrency
+    on one GPU, use the vLLM backend, agent.api_vllm, instead.)
   * Generation is blocking and GPU-bound. Each request runs generate() in a worker
     thread (so the event loop stays responsive) and holds a global lock so only ONE
     generation runs at a time; extra requests queue rather than thrash VRAM / OOM.
@@ -37,18 +42,25 @@ from __future__ import annotations
 
 import asyncio
 import json
-import secrets
 import sys
 import threading
 from contextlib import asynccontextmanager
 from typing import Any
 
 import anyio
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
 
-from . import concierge, config, data
+from . import concierge, config, schemas
+from .schemas import (
+    CampaignsResponse,
+    ChatRequest,
+    ChatResponse,
+    CustomersResponse,
+    ProfileRequest,
+    ProfileResponse,
+    require_auth,
+)
 
 # Only one generation at a time — the GPU can serve a single generate() efficiently, and
 # concurrent calls risk an OOM. Requests beyond the first queue on this lock.
@@ -75,107 +87,6 @@ def _model_ready() -> bool:
     return _llm._LLM is not None and _llm._LLM.model is not None
 
 
-# --------------------------------------------------------------------------- schemas
-class ChatTurn(BaseModel):
-    role: str = Field(..., description="'user' or 'assistant'.")
-    text: str = ""
-
-
-class ChatRequest(BaseModel):
-    """One concierge turn, grounded on a named customer + campaign.
-
-    ``history`` carries the prior turns (oldest first) so multi-turn context is
-    preserved across stateless requests — the same shape the CLI keeps in memory.
-    """
-    customer: str = Field(..., min_length=1, description="Customer given name, e.g. Aoi.")
-    campaign: str = Field(..., min_length=1, description="Campaign id, e.g. CMP-DEP-2026Q3-01.")
-    message: str = Field(..., min_length=1, description="The customer's question.")
-    history: list[ChatTurn] | None = Field(None, description="Prior turns (oldest first).")
-    language: str = Field("ja", description="Reply language: 'ja' or 'en' (default 'ja').")
-    max_new_tokens: int = Field(config.MAX_NEW_TOKENS, ge=1, le=8192)
-
-
-class ChatResponse(BaseModel):
-    message: str
-    customer: str
-    persona_id: str
-    campaign_id: str
-    campaign_name: str
-    language: str
-    model_id: str
-
-
-class ProfileRequest(BaseModel):
-    customer: str = Field(..., min_length=1, description="Customer given name, e.g. Aoi.")
-    campaign: str = Field(..., min_length=1, description="Campaign id, e.g. CMP-DEP-2026Q3-01.")
-    language: str = Field("ja", description="Reply language: 'ja' or 'en' (default 'ja').")
-
-
-class ProfileResponse(BaseModel):
-    system_prompt: str
-    customer: str
-    persona_id: str
-    campaign_id: str
-    campaign_name: str
-    language: str
-    qa_count: int
-
-
-class CustomerInfo(BaseModel):
-    name: str
-    persona_id: str
-    scenario: str
-
-
-class CustomersResponse(BaseModel):
-    customers: list[CustomerInfo]
-
-
-class CampaignInfo(BaseModel):
-    campaign_id: str
-    has_kb: bool = Field(..., description="Whether a compiled Q&A KB exists (answerable).")
-
-
-class CampaignsResponse(BaseModel):
-    campaigns: list[CampaignInfo]
-
-
-# --------------------------------------------------------------------------- auth
-def require_auth(authorization: str | None = Header(None)) -> None:
-    """Enforce `Authorization: Bearer <GOTOAI_AGENT_API_KEY>` when a key is configured."""
-    key = config.GOTOAI_AGENT_API_KEY
-    if not key:  # auth disabled (dev) — startup already warned
-        return
-    expected = f"Bearer {key}"
-    if not authorization or not secrets.compare_digest(authorization, expected):
-        raise HTTPException(status_code=401, detail="invalid or missing bearer token")
-
-
-# --------------------------------------------------------------------------- grounding
-def _resolve(customer: str, campaign: str) -> tuple[data.Customer, data.CampaignKnowledge]:
-    """Look up the customer + campaign, or raise 404 with the known options.
-
-    The data layer raises SystemExit for a missing campaign/KB; translate that (and an
-    unknown customer) into a clean 404 so a bad request never takes the process down.
-    """
-    cust = data.find_customer(customer)
-    if cust is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"unknown customer {customer!r}; known: {', '.join(data.customer_names())}",
-        )
-    if data.find_campaign(campaign) is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"unknown campaign {campaign!r}; known: {', '.join(data.campaign_ids())}",
-        )
-    try:
-        ck = data.load_campaign(campaign)
-    except SystemExit as exc:  # campaign known but its Q&A KB isn't compiled yet
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
-    return cust, ck
-
-
 # --------------------------------------------------------------------------- lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -190,7 +101,8 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="oneneobank-concierge agent-service", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="oneneobank-concierge agent-service (transformers)", version="0.1.0",
+              lifespan=lifespan)
 
 
 # --------------------------------------------------------------------------- probes
@@ -212,40 +124,29 @@ async def readyz() -> dict[str, Any]:
 @app.get("/v1/customers", response_model=CustomersResponse, dependencies=[Depends(require_auth)])
 async def customers_endpoint() -> CustomersResponse:
     """List the spotlight customers the concierge can be grounded on. No generation."""
-    infos = [CustomerInfo(name=c.name, persona_id=c.persona_id, scenario=c.scenario)
-             for c in data.customers().values()]
-    return CustomersResponse(customers=infos)
+    return schemas.list_customers()
 
 
 @app.get("/v1/campaigns", response_model=CampaignsResponse, dependencies=[Depends(require_auth)])
 async def campaigns_endpoint() -> CampaignsResponse:
     """List campaigns and whether each has an answerable Q&A KB. No generation."""
-    with_kb = set(data.campaigns_with_kb())
-    infos = [CampaignInfo(campaign_id=cid, has_kb=cid in with_kb) for cid in data.campaign_ids()]
-    return CampaignsResponse(campaigns=infos)
+    return schemas.list_campaigns()
 
 
-# --------------------------------------------------------------------------- endpoints
 @app.post("/v1/profile", response_model=ProfileResponse, dependencies=[Depends(require_auth)])
 async def profile_endpoint(req: ProfileRequest) -> ProfileResponse:
     """Return the grounded system prompt for a customer + campaign (the CLI's /profile).
 
     Useful for inspecting exactly what the concierge is grounded on. No generation.
     """
-    cust, ck = _resolve(req.customer, req.campaign)
-    language = concierge.normalize_language(req.language)
-    system_prompt = concierge.build_system_prompt(cust, ck, language)
-    return ProfileResponse(
-        system_prompt=system_prompt, customer=cust.name, persona_id=cust.persona_id,
-        campaign_id=ck.campaign_id, campaign_name=ck.campaign_name,
-        language=language, qa_count=len(ck.kb.get("qa", [])),
-    )
+    return schemas.build_profile(req)
 
 
+# --------------------------------------------------------------------------- endpoints
 @app.post("/v1/chat", response_model=ChatResponse, dependencies=[Depends(require_auth)])
 async def chat_endpoint(req: ChatRequest) -> ChatResponse:
     """Grounded concierge reply, non-streaming. One sampled generation on the GPU."""
-    cust, ck = _resolve(req.customer, req.campaign)
+    cust, ck = schemas.resolve_grounding(req.customer, req.campaign)
     language = concierge.normalize_language(req.language)
     system_prompt = concierge.build_system_prompt(cust, ck, language)
     history = [t.model_dump() for t in (req.history or [])]
@@ -276,7 +177,7 @@ async def chat_stream_endpoint(req: ChatRequest) -> StreamingResponse:
     the stream's duration, so concurrent chat requests queue (one generation at a time),
     consistent with the other endpoints.
     """
-    cust, ck = _resolve(req.customer, req.campaign)
+    cust, ck = schemas.resolve_grounding(req.customer, req.campaign)
     system_prompt = concierge.build_system_prompt(cust, ck, req.language)
     history = [t.model_dump() for t in (req.history or [])]
     messages = concierge.build_messages(system_prompt, history, req.message)
